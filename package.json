@@ -1,17 +1,22 @@
 {
   "name": "portfolio-builder-api",
   "version": "2.0.0",
-  "description": "Complete API server for a portfolio builder website with OAuth, comprehensive CRUD operations, and testing",
+  "description": "Complete Portfolio Builder API - Final Project Part 3 with comprehensive CRUD operations, OAuth authentication, data validation, and professional testing suite",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "echo 'No build step required'",
-    "test": "jest --testTimeout=30000",
+    "build": "echo 'Portfolio Builder API - Production Ready'",
+    "test": "jest --testTimeout=30000 --verbose",
     "test:watch": "jest --watch --testTimeout=30000",
-    "test:coverage": "jest --coverage --testTimeout=30000",
+    "test:coverage": "jest --coverage --testTimeout=30000 --collectCoverageFrom='**/*.js' --coveragePathIgnorePatterns='/node_modules/' --coverageReporters=text-lcov",
+    "test:ci": "jest --ci --coverage --testTimeout=30000",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "docs": "echo 'API Documentation available at /api-docs'",
+    "deploy": "echo 'Deploying to Render...'",
+    "health": "curl http://localhost:3000/health || echo 'Server not running'",
+    "collections": "curl http://localhost:3000/test/collections || echo 'Server not running'"
   },
   "keywords": [
     "portfolio",
@@ -23,10 +28,25 @@
     "oauth",
     "authentication",
     "testing",
-    "jest"
+    "jest",
+    "final-project",
+    "cse341",
+    "backend",
+    "nodejs"
   ],
-  "author": "Your Name",
+  "author": {
+    "name": "CSE341 Final Project Team",
+    "email": "student@byui.edu"
+  },
   "license": "Apache-2.0",
+  "homepage": "https://cse341-code-student.onrender.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/portfolio-builder-api.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/portfolio-builder-api/issues"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
@@ -42,22 +62,56 @@
     "supertest": "^6.3.3"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
   },
   "jest": {
     "testEnvironment": "node",
     "collectCoverageFrom": [
       "server.js",
-      "!node_modules/**"
+      "routes/**/*.js",
+      "models/**/*.js",
+      "middleware/**/*.js",
+      "config/**/*.js",
+      "!node_modules/**",
+      "!tests/**"
     ],
     "coverageReporters": [
       "text",
       "lcov",
-      "html"
+      "html",
+      "json"
     ],
     "testMatch": [
-      "**/tests/**/*.test.js"
+      "**/tests/**/*.test.js",
+      "**/__tests__/**/*.js"
     ],
-    "verbose": true
+    "verbose": true,
+    "forceExit": true,
+    "detectOpenHandles": true,
+    "testTimeout": 30000
+  },
+  "nodemonConfig": {
+    "ignore": [
+      "tests/",
+      "coverage/",
+      "*.test.js"
+    ],
+    "delay": "1000"
+  },
+  "eslintConfig": {
+    "env": {
+      "node": true,
+      "es2021": true,
+      "jest": true
+    },
+    "extends": "eslint:recommended",
+    "parserOptions": {
+      "ecmaVersion": 12
+    },
+    "rules": {
+      "no-unused-vars": "warn",
+      "no-console": "off"
+    }
   }
 }
