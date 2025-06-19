@@ -189,7 +189,7 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: 'https://cse341-code-student.onrender.com',
+        url: 'https://cse341-project-w05-w07.onrender.com',
         description: 'Production server'
       },
       {
@@ -890,10 +890,40 @@ app.use('*', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📚 API Documentation available at http://localhost:${PORT}/api-docs`);
   console.log(`🏥 Health check available at http://localhost:${PORT}/health`);
+  
+  // Log MongoDB connection status
+  if (mongoose.connection.readyState === 1) {
+    console.log('💾 MongoDB: Connected');
+  } else {
+    console.log('💾 MongoDB: Connecting...');
+  }
+});
+
+// Handle server errors
+server.on('error', (error) => {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  const bind = typeof PORT === 'string' ? 'Pipe ' + PORT : 'Port ' + PORT;
+
+  switch (error.code) {
+    case 'EACCES':
+      console.error(`${bind} requires elevated privileges`);
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(`${bind} is already in use`);
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
 });
 
 module.exports = app;
