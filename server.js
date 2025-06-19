@@ -1,8 +1,7 @@
 require('dotenv').config();
 
-// DEBUG: Verificar variables de entorno
+// DEBUG: Check environment variables
 console.log('🔍 MONGODB_URI:', process.env.MONGODB_URI ? 'EXISTS' : 'MISSING');
-console.log('🔍 Full URI:', process.env.MONGODB_URI);
 console.log('🔍 NODE_ENV:', process.env.NODE_ENV);
 console.log('🔍 PORT:', process.env.PORT);
 
@@ -20,18 +19,57 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+// MongoDB Connection con configuración mejorada
+const connectDB = async () => {
+  try {
+    const mongoURI = process.env.MONGODB_URI;
+    
+    if (!mongoURI) {
+      throw new Error('MONGODB_URI is not defined in environment variables');
+    }
 
+    const conn = await mongoose.connect(mongoURI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      // Additional configurations to prevent disconnections
+      maxPoolSize: 10, // Maintain up to 10 socket connections
+      serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
+      socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+      heartbeatFrequencyMS: 30000, // Check connection every 30 seconds
+      maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
+    });
+
+    console.log('✅ Connected to MongoDB:', conn.connection.host);
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error.message);
+    // Don't exit process, keep trying to reconnect
+    setTimeout(connectDB, 5000);
+  }
+};
+
+// Connect to database
+connectDB();
+
+// Connection events handling
 mongoose.connection.on('connected', () => {
-  console.log('✅ Connected to MongoDB');
+  console.log('✅ Mongoose connected to MongoDB');
 });
 
 mongoose.connection.on('error', (err) => {
-  console.error('❌ MongoDB connection error:', err);
+  console.error('❌ Mongoose connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('⚠️ Mongoose disconnected from MongoDB');
+  // Attempt to reconnect
+  setTimeout(connectDB, 5000);
+});
+
+// Handle graceful shutdown
+process.on('SIGINT', async () => {
+  await mongoose.connection.close();
+  console.log('MongoDB connection closed through app termination');
+  process.exit(0);
 });
 
 // MongoDB Schemas
@@ -168,6 +206,18 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+// Middleware to check database connection
+const checkDBConnection = (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      success: false,
+      error: 'Database connection unavailable',
+      message: 'Please try again in a few moments'
+    });
+  }
+  next();
+};
+
 // Error handling middleware
 const handleError = (res, error) => {
   console.error('Error:', error);
@@ -284,7 +334,18 @@ app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to Portfolio Builder API',
     version: '1.0.0',
-    documentation: '/api-docs'
+    documentation: '/api-docs',
+    database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
+  });
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
+    readyState: mongoose.connection.readyState
   });
 });
 
@@ -320,11 +381,12 @@ app.get('/', (req, res) => {
  *       500:
  *         description: Server error
  */
-app.get('/theme/:themeName', async (req, res) => {
+app.get('/theme/:themeName', checkDBConnection, async (req, res) => {
   try {
     const { themeName } = req.params;
     const theme = await Theme.findOne({ 
-      themeName: { $regex: new RegExp(themeName, 'i') } 
+      themeName: { $regex: new RegExp(themeName, 'i') },
+      isActive: true
     });
     
     if (!theme) {
@@ -370,7 +432,7 @@ app.get('/theme/:themeName', async (req, res) => {
  *       500:
  *         description: Server error
  */
-app.get('/user', async (req, res) => {
+app.get('/user', checkDBConnection, async (req, res) => {
   try {
     const users = await User.find({ isActive: true }).sort({ createdAt: -1 });
     res.json({
@@ -429,7 +491,7 @@ app.get('/user', async (req, res) => {
  *       500:
  *         description: Server error
  */
-app.post('/user', async (req, res) => {
+app.post('/user', checkDBConnection, async (req, res) => {
   try {
     const userData = req.body;
     const newUser = new User(userData);
@@ -475,7 +537,7 @@ app.post('/user', async (req, res) => {
  *       500:
  *         description: Server error
  */
-app.get('/user/:username', async (req, res) => {
+app.get('/user/:username', checkDBConnection, async (req, res) => {
   try {
     const { username } = req.params;
     const user = await User.findOne({ username, isActive: true });
@@ -534,7 +596,7 @@ app.get('/user/:username', async (req, res) => {
  *       500:
  *         description: Server error
  */
-app.put('/user/:username', async (req, res) => {
+app.put('/user/:username', checkDBConnection, async (req, res) => {
   try {
     const { username } = req.params;
     const updateData = req.body;
@@ -586,7 +648,7 @@ app.put('/user/:username', async (req, res) => {
  *       500:
  *         description: Server error
  */
-app.delete('/user/:username', async (req, res) => {
+app.delete('/user/:username', checkDBConnection, async (req, res) => {
   try {
     const { username } = req.params;
     
@@ -636,7 +698,7 @@ app.delete('/user/:username', async (req, res) => {
  *                   items:
  *                     $ref: '#/components/schemas/Theme'
  */
-app.get('/theme', async (req, res) => {
+app.get('/theme', checkDBConnection, async (req, res) => {
   try {
     const themes = await Theme.find({ isActive: true }).sort({ createdAt: -1 });
     res.json({
@@ -683,7 +745,7 @@ app.get('/theme', async (req, res) => {
  *       500:
  *         description: Server error
  */
-app.post('/theme', async (req, res) => {
+app.post('/theme', checkDBConnection, async (req, res) => {
   try {
     const themeData = req.body;
     const newTheme = new Theme(themeData);
@@ -735,7 +797,7 @@ app.post('/theme', async (req, res) => {
  *       500:
  *         description: Server error
  */
-app.put('/theme/:themeName', async (req, res) => {
+app.put('/theme/:themeName', checkDBConnection, async (req, res) => {
   try {
     const { themeName } = req.params;
     const updateData = req.body;
@@ -787,7 +849,7 @@ app.put('/theme/:themeName', async (req, res) => {
  *       500:
  *         description: Server error
  */
-app.delete('/theme/:themeName', async (req, res) => {
+app.delete('/theme/:themeName', checkDBConnection, async (req, res) => {
   try {
     const { themeName } = req.params;
     
@@ -821,7 +883,8 @@ app.use('*', (req, res) => {
     availableEndpoints: {
       documentation: '/api-docs',
       themes: '/theme',
-      users: '/user'
+      users: '/user',
+      health: '/health'
     }
   });
 });
@@ -830,6 +893,7 @@ app.use('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📚 API Documentation available at http://localhost:${PORT}/api-docs`);
+  console.log(`🏥 Health check available at http://localhost:${PORT}/health`);
 });
 
 module.exports = app;
