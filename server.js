@@ -1,4 +1,11 @@
 require('dotenv').config();
+
+// DEBUG: Verificar variables de entorno
+console.log('🔍 MONGODB_URI:', process.env.MONGODB_URI ? 'EXISTS' : 'MISSING');
+console.log('🔍 Full URI:', process.env.MONGODB_URI);
+console.log('🔍 NODE_ENV:', process.env.NODE_ENV);
+console.log('🔍 PORT:', process.env.PORT);
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
