@@ -19,7 +19,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// MongoDB Connection con configuración mejorada
+// MongoDB Connection with improved configuration
 const connectDB = async () => {
   try {
     const mongoURI = process.env.MONGODB_URI;
